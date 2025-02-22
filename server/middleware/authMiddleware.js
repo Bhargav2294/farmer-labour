@@ -1,5 +1,5 @@
 const jwt = require("jsonwebtoken");
-const Farmer = require("../models/User"); // Import Farmer model
+const User = require("../models/User"); // Import Farmer model
 
 const authMiddleware = async (req, res, next) => {
   const authHeader = req.header("Authorization");
@@ -12,7 +12,7 @@ const authMiddleware = async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const farmer = await Farmer.findById(decoded.id); // Fetch farmer details from DB
+    const farmer = await User.findById(decoded.id); // Fetch farmer details from DB
 
     if (!farmer) {
       return res.status(401).json({ error: "Farmer not found" });

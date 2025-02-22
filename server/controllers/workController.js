@@ -1,5 +1,5 @@
 const Work = require("../models/Work");
-const Farmer = require("../models/User"); // Make sure this path is correct
+const User = require("../models/User"); // Make sure this path is correct
 
 const getAvailableLabourers = async (req, res) => {
   try {
@@ -8,7 +8,7 @@ const getAvailableLabourers = async (req, res) => {
     }
 
     const farmerId = req.user.id;
-    const farmer = await Farmer.findById(farmerId); // ✅ Fetch farmer details
+    const farmer = await User.findById(farmerId); // ✅ Fetch farmer details
 
     if (!farmer) {
       return res.status(404).json({ message: "Farmer not found" });
@@ -100,5 +100,44 @@ const bookWork = async (req, res) => {
   }
 };
 
+const getBookedWorks = async (req, res) => {
+  try {
+    const farmerId = req.user.id; // Get logged-in farmer's ID
 
-module.exports = { addWork, getAvailableLabourers, bookWork };
+    // Find all works booked by this farmer, sorted by latest booking first
+    const bookedWorks = await Work.find({ bookedBy: farmerId })
+      .populate("labourId", "name email village workType")
+      .sort({ date: -1 }); // Sort by date (latest first)
+
+    res.json(bookedWorks);
+  } catch (error) {
+    console.error("Error fetching booked works:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+const getLabourWorkStatus = async (req, res) => {
+  try {
+    const labourId = req.user.id; // Get logged-in labourer's ID
+
+    // Find all works added by this labourer
+    const allWorks = await Work.find({ labourId });
+
+    // Separate booked and pending works
+    const pendingWorks = allWorks.filter(work => work.availability === true);
+    const bookedWorks = allWorks.filter(work => work.availability === false);
+
+    res.json({
+      totalWorks: allWorks.length,
+      pendingWorks,
+      bookedWorks,
+    });
+  } catch (error) {
+    console.error("Error fetching labour work status:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+
+
+module.exports = { addWork, getAvailableLabourers, bookWork,getBookedWorks,getLabourWorkStatus };
