@@ -1,15 +1,31 @@
 const Work = require("../models/Work");
+const Farmer = require("../models/User"); // Make sure this path is correct
 
 const getAvailableLabourers = async (req, res) => {
   try {
-    const availableLabourers = await Work.find({ availability: true })
-      .populate("labourId", "name email village");
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ message: "Unauthorized: No user data" });
+    }
+
+    const farmerId = req.user.id;
+    const farmer = await Farmer.findById(farmerId); // ✅ Fetch farmer details
+
+    if (!farmer) {
+      return res.status(404).json({ message: "Farmer not found" });
+    }
+
+    const availableLabourers = await Work.find({
+      availability: true,
+      village: farmer.village, // ✅ Filter laborers by farmer's village
+    }).populate("labourId", "name email village");
 
     res.json(availableLabourers);
   } catch (error) {
-    res.status(500).json({ message: "Server error" });
+    console.error("Error fetching available labourers:", error.message);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
 
 const addWork = async (req, res) => {
   try {
@@ -47,11 +63,15 @@ const addWork = async (req, res) => {
 const bookWork = async (req, res) => {
   try {
     const workId = req.params.id; // Extract work ID from URL
-    const { farmerId, farmerEmail, farmerMobile } = req.body; // Extract farmer details
 
-    // Validate input
+    // Get farmer details from the logged-in user (req.user set by authMiddleware)
+    const farmerId = req.user.id;
+    const farmerEmail = req.user.email;
+    const farmerMobile = req.user.mobile;
+
+    // Check if farmer details exist
     if (!farmerId || !farmerEmail || !farmerMobile) {
-      return res.status(400).json({ error: "Farmer ID, email, and mobile are required." });
+      return res.status(400).json({ error: "Unauthorized: Farmer details not found" });
     }
 
     // Check if the work entry exists
@@ -65,7 +85,7 @@ const bookWork = async (req, res) => {
       return res.status(400).json({ error: "Work is already booked" });
     }
 
-    // Update the work entry with farmer's details
+    // Update the work entry with the farmer's details
     work.bookedBy = farmerId;
     work.farmerEmail = farmerEmail;
     work.farmerMobile = farmerMobile;
@@ -79,5 +99,6 @@ const bookWork = async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
+
 
 module.exports = { addWork, getAvailableLabourers, bookWork };
